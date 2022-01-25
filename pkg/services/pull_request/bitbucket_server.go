@@ -3,6 +3,7 @@ package pull_request
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	bitbucketv1 "github.com/gfleury/go-bitbucket-v1"
 )
@@ -35,6 +36,9 @@ func NewBitbucketServiceNoAuth(ctx context.Context, url, projectKey, repositoryS
 }
 
 func newBitbucketService(ctx context.Context, bitbucketConfig *bitbucketv1.Configuration, projectKey, repositorySlug string) (PullRequestService, error) {
+	if !strings.HasSuffix(bitbucketConfig.BasePath, "/rest") {
+		bitbucketConfig.BasePath = bitbucketConfig.BasePath + "/rest"
+	}
 	bitbucketClient := bitbucketv1.NewAPIClient(ctx, bitbucketConfig)
 
 	return &BitbucketService{
@@ -63,7 +67,7 @@ func (b *BitbucketService) List(_ context.Context) ([]*PullRequest, error) {
 		for _, pull := range pulls {
 			pullRequests = append(pullRequests, &PullRequest{
 				Number:  pull.ID,
-				Branch:  pull.FromRef.ID,
+				Branch:  pull.FromRef.DisplayID,    // ID: refs/heads/main DisplayID: main
 				HeadSHA: pull.FromRef.LatestCommit, // This is not defined in the official docs, but works in practice
 			})
 		}

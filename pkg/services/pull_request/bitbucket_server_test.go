@@ -14,7 +14,7 @@ func defaultHandler(t *testing.T) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.RequestURI {
-		case "/api/1.0/projects/PROJECT/repos/REPO/pull-requests?limit=100":
+		case "/rest/api/1.0/projects/PROJECT/repos/REPO/pull-requests?limit=100":
 			io.WriteString(w, `{
 					"size": 1,
 					"limit": 100,
@@ -24,6 +24,7 @@ func defaultHandler(t *testing.T) func(http.ResponseWriter, *http.Request) {
 							"id": 101,
 							"fromRef": {
 								"id": "refs/heads/feature-ABC-123",
+								"displayId": "feature-ABC-123",
 								"latestCommit": "cb3cf2e4d1517c83e720d2585b9402dbef71f992"
 							}
 						}
@@ -48,7 +49,7 @@ func TestListPullRequestNoAuth(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(pullRequests))
 	assert.Equal(t, 101, pullRequests[0].Number)
-	assert.Equal(t, "refs/heads/feature-ABC-123", pullRequests[0].Branch)
+	assert.Equal(t, "feature-ABC-123", pullRequests[0].Branch)
 	assert.Equal(t, "cb3cf2e4d1517c83e720d2585b9402dbef71f992", pullRequests[0].HeadSHA)
 }
 
@@ -56,7 +57,7 @@ func TestListPullRequestPagination(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.RequestURI {
-		case "/api/1.0/projects/PROJECT/repos/REPO/pull-requests?limit=100":
+		case "/rest/api/1.0/projects/PROJECT/repos/REPO/pull-requests?limit=100":
 			io.WriteString(w, `{
 					"size": 2,
 					"limit": 2,
@@ -66,6 +67,7 @@ func TestListPullRequestPagination(t *testing.T) {
 							"id": 101,
 							"fromRef": {
 								"id": "refs/heads/feature-101",
+								"displayId": "feature-101",
 								"latestCommit": "ab3cf2e4d1517c83e720d2585b9402dbef71f992"
 							}
 						},
@@ -73,13 +75,14 @@ func TestListPullRequestPagination(t *testing.T) {
 							"id": 102,
 							"fromRef": {
 								"id": "refs/heads/feature-102",
+								"displayId": "feature-102",
 								"latestCommit": "bb3cf2e4d1517c83e720d2585b9402dbef71f992"
 							}
 						}
 					],
 					"nextPageStart": 200
 				}`)
-		case "/api/1.0/projects/PROJECT/repos/REPO/pull-requests?limit=100&start=200":
+		case "/rest/api/1.0/projects/PROJECT/repos/REPO/pull-requests?limit=100&start=200":
 			io.WriteString(w, `{
 				"size": 1,
 				"limit": 2,
@@ -89,6 +92,7 @@ func TestListPullRequestPagination(t *testing.T) {
 						"id": 200,
 						"fromRef": {
 							"id": "refs/heads/feature-200",
+							"displayId": "feature-200",
 							"latestCommit": "cb3cf2e4d1517c83e720d2585b9402dbef71f992"
 						}
 					}
@@ -107,17 +111,17 @@ func TestListPullRequestPagination(t *testing.T) {
 	assert.Equal(t, 3, len(pullRequests))
 	assert.Equal(t, PullRequest{
 		Number:  101,
-		Branch:  "refs/heads/feature-101",
+		Branch:  "feature-101",
 		HeadSHA: "ab3cf2e4d1517c83e720d2585b9402dbef71f992",
 	}, *pullRequests[0])
 	assert.Equal(t, PullRequest{
 		Number:  102,
-		Branch:  "refs/heads/feature-102",
+		Branch:  "feature-102",
 		HeadSHA: "bb3cf2e4d1517c83e720d2585b9402dbef71f992",
 	}, *pullRequests[1])
 	assert.Equal(t, PullRequest{
 		Number:  200,
-		Branch:  "refs/heads/feature-200",
+		Branch:  "feature-200",
 		HeadSHA: "cb3cf2e4d1517c83e720d2585b9402dbef71f992",
 	}, *pullRequests[2])
 }
@@ -136,7 +140,7 @@ func TestListPullRequestBasicAuth(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(pullRequests))
 	assert.Equal(t, 101, pullRequests[0].Number)
-	assert.Equal(t, "refs/heads/feature-ABC-123", pullRequests[0].Branch)
+	assert.Equal(t, "feature-ABC-123", pullRequests[0].Branch)
 	assert.Equal(t, "cb3cf2e4d1517c83e720d2585b9402dbef71f992", pullRequests[0].HeadSHA)
 }
 
@@ -154,7 +158,7 @@ func TestListResponseMalformed(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.RequestURI {
-		case "/api/1.0/projects/PROJECT/repos/REPO/pull-requests?limit=100":
+		case "/rest/api/1.0/projects/PROJECT/repos/REPO/pull-requests?limit=100":
 			io.WriteString(w, `{
 					"size": 1,
 					"limit": 100,
@@ -176,7 +180,7 @@ func TestListResponseEmpty(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.RequestURI {
-		case "/api/1.0/projects/PROJECT/repos/REPO/pull-requests?limit=100":
+		case "/rest/api/1.0/projects/PROJECT/repos/REPO/pull-requests?limit=100":
 			io.WriteString(w, `{
 					"size": 0,
 					"limit": 100,
