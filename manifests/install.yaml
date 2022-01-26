@@ -2416,6 +2416,8 @@ spec:
                                         - passwordRef
                                         - username
                                         type: object
+                                      branchMatch:
+                                        type: string
                                       project:
                                         type: string
                                       repo:
@@ -4533,6 +4535,8 @@ spec:
                                         - passwordRef
                                         - username
                                         type: object
+                                      branchMatch:
+                                        type: string
                                       project:
                                         type: string
                                       repo:
@@ -5471,6 +5475,8 @@ spec:
                               - passwordRef
                               - username
                               type: object
+                            branchMatch:
+                              type: string
                             project:
                               type: string
                             repo:

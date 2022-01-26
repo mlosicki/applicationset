@@ -47,7 +47,7 @@ func TestListPullRequestNoAuth(t *testing.T) {
 		defaultHandler(t)(w, r)
 	}))
 	defer ts.Close()
-	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO")
+	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil)
 	assert.Nil(t, err)
 	pullRequests, err := svc.List(context.TODO())
 	assert.Nil(t, err)
@@ -112,7 +112,7 @@ func TestListPullRequestPagination(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO")
+	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil)
 	assert.Nil(t, err)
 	pullRequests, err := svc.List(context.TODO())
 	assert.Nil(t, err)
@@ -142,7 +142,7 @@ func TestListPullRequestBasicAuth(t *testing.T) {
 		defaultHandler(t)(w, r)
 	}))
 	defer ts.Close()
-	svc, err := NewBitbucketServiceBasicAuth(context.TODO(), "user", "password", ts.URL, "PROJECT", "REPO")
+	svc, err := NewBitbucketServiceBasicAuth(context.TODO(), "user", "password", ts.URL, "PROJECT", "REPO", nil)
 	assert.Nil(t, err)
 	pullRequests, err := svc.List(context.TODO())
 	assert.Nil(t, err)
@@ -157,7 +157,7 @@ func TestListResponseError(t *testing.T) {
 		w.WriteHeader(500)
 	}))
 	defer ts.Close()
-	svc, _ := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO")
+	svc, _ := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil)
 	_, err := svc.List(context.TODO())
 	assert.NotNil(t, err, err)
 }
@@ -182,7 +182,7 @@ func TestListResponseMalformed(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	svc, _ := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO")
+	svc, _ := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil)
 	_, err := svc.List(context.TODO())
 	assert.NotNil(t, err, err)
 }
@@ -207,9 +207,98 @@ func TestListResponseEmpty(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO")
+	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil)
 	assert.Nil(t, err)
 	pullRequests, err := svc.List(context.TODO())
 	assert.Nil(t, err)
 	assert.Empty(t, pullRequests)
+}
+
+func TestListPullRequestBranchMatch(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var err error
+		switch r.RequestURI {
+		case "/rest/api/1.0/projects/PROJECT/repos/REPO/pull-requests?limit=100":
+			_, err = io.WriteString(w, `{
+					"size": 2,
+					"limit": 2,
+					"isLastPage": false,
+					"values": [
+						{
+							"id": 101,
+							"fromRef": {
+								"id": "refs/heads/feature-101",
+								"displayId": "feature-101",
+								"latestCommit": "ab3cf2e4d1517c83e720d2585b9402dbef71f992"
+							}
+						},
+						{
+							"id": 102,
+							"fromRef": {
+								"id": "refs/heads/feature-102",
+								"displayId": "feature-102",
+								"latestCommit": "bb3cf2e4d1517c83e720d2585b9402dbef71f992"
+							}
+						}
+					],
+					"nextPageStart": 200
+				}`)
+		case "/rest/api/1.0/projects/PROJECT/repos/REPO/pull-requests?limit=100&start=200":
+			_, err = io.WriteString(w, `{
+				"size": 1,
+				"limit": 2,
+				"isLastPage": true,
+				"values": [
+					{
+						"id": 200,
+						"fromRef": {
+							"id": "refs/heads/feature-200",
+							"displayId": "feature-200",
+							"latestCommit": "cb3cf2e4d1517c83e720d2585b9402dbef71f992"
+						}
+					}
+				],
+				"start": 200
+			}`)
+		default:
+			t.Fail()
+		}
+		if err != nil {
+			t.Fail()
+		}
+	}))
+	defer ts.Close()
+	regexp := `feature-1[\d]{2}`
+	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", &regexp)
+	assert.Nil(t, err)
+	pullRequests, err := svc.List(context.TODO())
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(pullRequests))
+	assert.Equal(t, PullRequest{
+		Number:  101,
+		Branch:  "feature-101",
+		HeadSHA: "ab3cf2e4d1517c83e720d2585b9402dbef71f992",
+	}, *pullRequests[0])
+	assert.Equal(t, PullRequest{
+		Number:  102,
+		Branch:  "feature-102",
+		HeadSHA: "bb3cf2e4d1517c83e720d2585b9402dbef71f992",
+	}, *pullRequests[1])
+
+	regexp = `.*2$`
+	svc, err = NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", &regexp)
+	assert.Nil(t, err)
+	pullRequests, err = svc.List(context.TODO())
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(pullRequests))
+	assert.Equal(t, PullRequest{
+		Number:  102,
+		Branch:  "feature-102",
+		HeadSHA: "bb3cf2e4d1517c83e720d2585b9402dbef71f992",
+	}, *pullRequests[0])
+
+	regexp = `[\d{2}`
+	_, err = NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", &regexp)
+	assert.NotNil(t, err)
 }

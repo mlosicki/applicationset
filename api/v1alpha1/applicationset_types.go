@@ -376,6 +376,8 @@ type PullRequestGeneratorBitbucketServer struct {
 	Repo string `json:"repo"`
 	// The Bitbucket REST API URL to talk to e.g. https://bitbucket.org/rest Required.
 	API string `json:"api"`
+	// A regex which must match the branch name.
+	BranchMatch *string `json:"branchMatch,omitempty"`
 	// Credentials for Basic auth
 	BasicAuth *BasicAuthBitbucketServer `json:"basicAuth,omitempty"`
 }

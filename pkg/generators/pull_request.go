@@ -93,9 +93,9 @@ func (g *PullRequestGenerator) selectServiceProvider(ctx context.Context, genera
 			if err != nil {
 				return nil, fmt.Errorf("error fetching Secret token: %v", err)
 			}
-			return pullrequest.NewBitbucketServiceBasicAuth(ctx, providerConfig.BasicAuth.Username, password, providerConfig.API, providerConfig.Project, providerConfig.Repo)
+			return pullrequest.NewBitbucketServiceBasicAuth(ctx, providerConfig.BasicAuth.Username, password, providerConfig.API, providerConfig.Project, providerConfig.Repo, providerConfig.BranchMatch)
 		} else {
-			return pullrequest.NewBitbucketServiceNoAuth(ctx, providerConfig.API, providerConfig.Project, providerConfig.Repo)
+			return pullrequest.NewBitbucketServiceNoAuth(ctx, providerConfig.API, providerConfig.Project, providerConfig.Repo, providerConfig.BranchMatch)
 		}
 	}
 	return nil, fmt.Errorf("no Pull Request provider implementation configured")
