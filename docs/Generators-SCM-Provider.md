@@ -120,7 +120,7 @@ spec:
           passwordRef:
             secretName: mypassword
             key: password
-        # Labels are not supported by Bitbucket Server
+        # Support for labels is TODO. Bitbucket server labels are not supported for PRs, but they are for repos
   template:
   # ...
 ```
