@@ -391,8 +391,18 @@ type PullRequestGeneratorBitbucketServer struct {
 	API string `json:"api"`
 	// A regex which must match the branch name.
 	BranchMatch *string `json:"branchMatch,omitempty"`
+	// Filter the PR based on the build statuses of the commit
+	BuildFilter *PullRequestBuildStatusFilter `json:"builds,omitempty"`
 	// Credentials for Basic auth
 	BasicAuth *BasicAuthBitbucketServer `json:"basicAuth,omitempty"`
+}
+
+// PullRequestBuildStatusFilter defines filtering behavior based on build statuses associated to the PR
+type PullRequestBuildStatusFilter struct {
+	// If the HEAD commit of the PR has failed builds, find and return the latest "green" commit if it exists
+	FindLatestSuccessful bool `json:"findLatestSuccessful,omitempty"`
+	// An optional list of regexes to match builds that must be successful. An empty list implies all builds must be green.
+	SuccessfulBuilds []string `json:"successful,omitempty"`
 }
 
 // BasicAuthBitbucketServer defines the username/(password or personal access token) for Basic auth.

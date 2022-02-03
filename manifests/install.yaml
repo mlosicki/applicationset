@@ -2418,6 +2418,15 @@ spec:
                                         type: object
                                       branchMatch:
                                         type: string
+                                      builds:
+                                        properties:
+                                          findLatestSuccessful:
+                                            type: boolean
+                                          successful:
+                                            items:
+                                              type: string
+                                            type: array
+                                        type: object
                                       project:
                                         type: string
                                       repo:
@@ -4567,6 +4576,15 @@ spec:
                                         type: object
                                       branchMatch:
                                         type: string
+                                      builds:
+                                        properties:
+                                          findLatestSuccessful:
+                                            type: boolean
+                                          successful:
+                                            items:
+                                              type: string
+                                            type: array
+                                        type: object
                                       project:
                                         type: string
                                       repo:
@@ -5537,6 +5555,15 @@ spec:
                               type: object
                             branchMatch:
                               type: string
+                            builds:
+                              properties:
+                                findLatestSuccessful:
+                                  type: boolean
+                                successful:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
                             project:
                               type: string
                             repo:

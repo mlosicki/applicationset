@@ -32,6 +32,29 @@ func defaultHandler(t *testing.T) func(http.ResponseWriter, *http.Request) {
 					],
 					"start": 0
 				}`)
+		// TODO the cli library doesn't support "limit" query param for this API call, even though it is paginated in the docs
+		// 	 The server default seems to be 25, so it's ok for now
+		case "/rest/build-status/1.0/commits/cb3cf2e4d1517c83e720d2585b9402dbef71f992":
+			_, err = io.WriteString(w, `{
+						"size": 3,
+						"limit": 100,
+						"isLastPage": true,
+						"values": [
+							{
+								"state": "SUCCESSFUL",
+								"name": "DOCKER-BUILD #1"
+							},
+							{
+								"state": "FAILED",
+								"name": "e2e"
+							},
+							{
+								"state": "INPROGRESS",
+								"name": "docs"
+							}
+						],
+						"start": 0
+					}`)
 		default:
 			t.Fail()
 		}
@@ -47,7 +70,7 @@ func TestListPullRequestNoAuth(t *testing.T) {
 		defaultHandler(t)(w, r)
 	}))
 	defer ts.Close()
-	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil)
+	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil, nil, false)
 	assert.Nil(t, err)
 	pullRequests, err := svc.List(context.TODO())
 	assert.Nil(t, err)
@@ -112,7 +135,7 @@ func TestListPullRequestPagination(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil)
+	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil, nil, false)
 	assert.Nil(t, err)
 	pullRequests, err := svc.List(context.TODO())
 	assert.Nil(t, err)
@@ -142,7 +165,7 @@ func TestListPullRequestBasicAuth(t *testing.T) {
 		defaultHandler(t)(w, r)
 	}))
 	defer ts.Close()
-	svc, err := NewBitbucketServiceBasicAuth(context.TODO(), "user", "password", ts.URL, "PROJECT", "REPO", nil)
+	svc, err := NewBitbucketServiceBasicAuth(context.TODO(), "user", "password", ts.URL, "PROJECT", "REPO", nil, nil, false)
 	assert.Nil(t, err)
 	pullRequests, err := svc.List(context.TODO())
 	assert.Nil(t, err)
@@ -157,7 +180,7 @@ func TestListResponseError(t *testing.T) {
 		w.WriteHeader(500)
 	}))
 	defer ts.Close()
-	svc, _ := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil)
+	svc, _ := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil, nil, false)
 	_, err := svc.List(context.TODO())
 	assert.NotNil(t, err, err)
 }
@@ -182,7 +205,7 @@ func TestListResponseMalformed(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	svc, _ := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil)
+	svc, _ := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil, nil, false)
 	_, err := svc.List(context.TODO())
 	assert.NotNil(t, err, err)
 }
@@ -207,7 +230,7 @@ func TestListResponseEmpty(t *testing.T) {
 		}
 	}))
 	defer ts.Close()
-	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil)
+	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil, nil, false)
 	assert.Nil(t, err)
 	pullRequests, err := svc.List(context.TODO())
 	assert.Nil(t, err)
@@ -270,7 +293,7 @@ func TestListPullRequestBranchMatch(t *testing.T) {
 	}))
 	defer ts.Close()
 	regexp := `feature-1[\d]{2}`
-	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", &regexp)
+	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", &regexp, nil, false)
 	assert.Nil(t, err)
 	pullRequests, err := svc.List(context.TODO())
 	assert.Nil(t, err)
@@ -287,7 +310,7 @@ func TestListPullRequestBranchMatch(t *testing.T) {
 	}, *pullRequests[1])
 
 	regexp = `.*2$`
-	svc, err = NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", &regexp)
+	svc, err = NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", &regexp, nil, false)
 	assert.Nil(t, err)
 	pullRequests, err = svc.List(context.TODO())
 	assert.Nil(t, err)
@@ -299,6 +322,204 @@ func TestListPullRequestBranchMatch(t *testing.T) {
 	}, *pullRequests[0])
 
 	regexp = `[\d{2}`
-	_, err = NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", &regexp)
+	_, err = NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", &regexp, nil, false)
 	assert.NotNil(t, err)
+}
+
+func TestListPullRequestAllBuildsGreen(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Empty(t, r.Header.Get("Authorization"))
+		switch r.RequestURI {
+		case "/rest/api/1.0/projects/PROJECT/repos/REPOGREEN/pull-requests?limit=100":
+			_, err := io.WriteString(w, `{
+					"size": 1,
+					"limit": 100,
+					"isLastPage": true,
+					"values": [
+						{
+							"id": 200,
+							"fromRef": {
+								"id": "refs/heads/feature-green",
+								"displayId": "feature-green",
+								"latestCommit": "de3cf2e4d1517c83e720d2585b9402dbef71f992"
+							}
+						}
+					],
+					"start": 0
+				}`)
+			if err != nil {
+				t.Fail()
+			}
+			return
+		case "/rest/build-status/1.0/commits/de3cf2e4d1517c83e720d2585b9402dbef71f992":
+			_, err := io.WriteString(w, `{
+						"size": 3,
+						"limit": 100,
+						"isLastPage": true,
+						"values": [
+							{
+								"state": "SUCCESSFUL",
+								"name": "DOCKER-BUILD #1"
+							},
+							{
+								"state": "SUCCESSFUL",
+								"name": "e2e"
+							},
+							{
+								"state": "SUCCESSFUL",
+								"name": "docs"
+							}
+						],
+						"start": 0
+					}`)
+			if err != nil {
+				t.Fail()
+			}
+			return
+		}
+		defaultHandler(t)(w, r)
+	}))
+	defer ts.Close()
+	requestAllBuildsGreen := []string{}
+	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil, requestAllBuildsGreen, false)
+	assert.Nil(t, err)
+	pullRequests, err := svc.List(context.TODO())
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(pullRequests))
+
+	svc, err = NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPOGREEN", nil, requestAllBuildsGreen, false)
+	assert.Nil(t, err)
+	pullRequests, err = svc.List(context.TODO())
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(pullRequests))
+	assert.Equal(t, 200, pullRequests[0].Number)
+	assert.Equal(t, "feature-green", pullRequests[0].Branch)
+	assert.Equal(t, "de3cf2e4d1517c83e720d2585b9402dbef71f992", pullRequests[0].HeadSHA)
+}
+
+func TestListPullRequestListedBuildsGreen(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(defaultHandler(t)))
+	defer ts.Close()
+	requestListedBuildsGreen := []string{`DOCKER-BUILD #\d+`}
+	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil, requestListedBuildsGreen, false)
+	assert.Nil(t, err)
+	pullRequests, err := svc.List(context.TODO())
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(pullRequests))
+	assert.Equal(t, 101, pullRequests[0].Number)
+	assert.Equal(t, "feature-ABC-123", pullRequests[0].Branch)
+	assert.Equal(t, "cb3cf2e4d1517c83e720d2585b9402dbef71f992", pullRequests[0].HeadSHA)
+
+	requestListedBuildsGreen = []string{`DOCKER-BUILD #\d+`, `docs`}
+	svc, err = NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil, requestListedBuildsGreen, false)
+	assert.Nil(t, err)
+	pullRequests, err = svc.List(context.TODO())
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(pullRequests))
+}
+
+func TestListPullRequestCombineBranchMatchWithBuilds(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(defaultHandler(t)))
+	defer ts.Close()
+	requestListedBuildsGreen := []string{`DOCKER-BUILD #\d+`}
+	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil, requestListedBuildsGreen, false)
+	assert.Nil(t, err)
+	pullRequests, err := svc.List(context.TODO())
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(pullRequests))
+	assert.Equal(t, 101, pullRequests[0].Number)
+	assert.Equal(t, "feature-ABC-123", pullRequests[0].Branch)
+	assert.Equal(t, "cb3cf2e4d1517c83e720d2585b9402dbef71f992", pullRequests[0].HeadSHA)
+
+	branchMatch := `doesnotmatchbranch`
+	svc, err = NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", &branchMatch, requestListedBuildsGreen, false)
+	assert.Nil(t, err)
+	pullRequests, err = svc.List(context.TODO())
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(pullRequests))
+}
+
+func TestListPullRequestFindLatestGreenBuild(t *testing.T) {
+	commitApiCalls := []int{0, 0}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.RequestURI {
+		case "/rest/api/1.0/projects/PROJECT/repos/REPO/pull-requests/101/commits?limit=100":
+			_, err := io.WriteString(w, `{
+					"size": 3,
+					"limit": 100,
+					"isLastPage": true,
+					"values": [
+						{
+							"id": "cb3cf2e4d1517c83e720d2585b9402dbef71f992"
+						},
+						{
+							"id": "de3cf2e4d1517c83e720d2585b9402dbef71f992"
+						},
+						{
+							"id": "ee3cf2e4d1517c83e720d2585b9402dbef71f992"
+						}
+					],
+					"start": 0
+				}`)
+			if err != nil {
+				t.Fail()
+			}
+			return
+		case "/rest/build-status/1.0/commits/de3cf2e4d1517c83e720d2585b9402dbef71f992":
+			commitApiCalls[0] += 1
+			_, err := io.WriteString(w, `{
+						"size": 1,
+						"limit": 100,
+						"isLastPage": true,
+						"values": [
+							{
+								"state": "FAILED",
+								"name": "e2e"
+							}
+						],
+						"start": 0
+					}`)
+			if err != nil {
+				t.Fail()
+			}
+			return
+		case "/rest/build-status/1.0/commits/ee3cf2e4d1517c83e720d2585b9402dbef71f992":
+			commitApiCalls[1] += 1
+			_, err := io.WriteString(w, `{
+						"size": 1,
+						"limit": 100,
+						"isLastPage": true,
+						"values": [
+							{
+								"state": "SUCCESSFUL",
+								"name": "e2e"
+							}
+						],
+						"start": 0
+					}`)
+			if err != nil {
+				t.Fail()
+			}
+			return
+		}
+		defaultHandler(t)(w, r)
+	}))
+	defer ts.Close()
+	requestListedBuildsGreen := []string{`e\de`}
+	svc, err := NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil, requestListedBuildsGreen, true)
+	assert.Nil(t, err)
+	pullRequests, err := svc.List(context.TODO())
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(pullRequests))
+	assert.Equal(t, 101, pullRequests[0].Number)
+	assert.Equal(t, "feature-ABC-123", pullRequests[0].Branch)
+	assert.Equal(t, "ee3cf2e4d1517c83e720d2585b9402dbef71f992", pullRequests[0].HeadSHA)
+
+	requestListedBuildsGreen = []string{`docs`}
+	svc, err = NewBitbucketServiceNoAuth(context.TODO(), ts.URL, "PROJECT", "REPO", nil, requestListedBuildsGreen, true)
+	assert.Nil(t, err)
+	pullRequests, err = svc.List(context.TODO())
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(pullRequests))
+	assert.Equal(t, []int{2, 2}, commitApiCalls, "all commits should be traversed")
 }
