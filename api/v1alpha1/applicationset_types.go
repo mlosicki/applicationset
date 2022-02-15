@@ -401,8 +401,8 @@ type PullRequestGeneratorBitbucketServer struct {
 type PullRequestBuildStatusFilter struct {
 	// If the HEAD commit of the PR has failed builds, find and return the latest "green" commit if it exists
 	FindLatestSuccessful bool `json:"findLatestSuccessful,omitempty"`
-	// An optional list of regexes to match builds that must be successful. An empty list implies all builds must be green.
-	SuccessfulBuilds []string `json:"successful,omitempty"`
+	// A list of regexes to match builds that must be successful. An empty list implies all builds must be green.
+	SuccessfulBuilds []string `json:"successful"`
 }
 
 // BasicAuthBitbucketServer defines the username/(password or personal access token) for Basic auth.

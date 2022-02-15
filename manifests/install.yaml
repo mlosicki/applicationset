@@ -2426,6 +2426,8 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                        required:
+                                        - successful
                                         type: object
                                       project:
                                         type: string
@@ -4584,6 +4586,8 @@ spec:
                                             items:
                                               type: string
                                             type: array
+                                        required:
+                                        - successful
                                         type: object
                                       project:
                                         type: string
@@ -5563,6 +5567,8 @@ spec:
                                   items:
                                     type: string
                                   type: array
+                              required:
+                              - successful
                               type: object
                             project:
                               type: string

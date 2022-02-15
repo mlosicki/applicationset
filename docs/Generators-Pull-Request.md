@@ -70,6 +70,17 @@ spec:
         repo: myrepository
         # URL of the Bitbucket Server. Required.
         api: https://mycompany.bitbucket.org
+        # Filter the PRs that you want to target using a regex on the source branch name (optional)
+        branchMatch: ".*-argocd-preview"
+        # Filter the PRs using the build results of the latest commit (optional)
+        builds:
+          # If a new commit breaks one of your builds, find the latest commit that is considered "green"
+          # By default, the PR would not be returned anymore
+          findLatestSuccessful: true
+          # Regex expressions to match build names that must be green. Required.
+          # An empty list implies all builds found (no builds is also considered as ok)
+          successful:
+          - "Build number #\d+"
         # Credentials for Basic authentication. Required for private repositories.
         basicAuth:
           # The username to authenticate with
@@ -86,6 +97,12 @@ spec:
 * `project`: Required name of the Bitbucket project
 * `repo`: Required name of the Bitbucket repository.
 * `api`: Required URL to access the Bitbucket REST API. For the example above, an API request would be made to `https://mycompany.bitbucket.org/rest/api/1.0/projects/myproject/repos/myrepository/pull-requests`
+
+For filtering, the following (optional) fields are available:
+* `branchMatch`: Filter the PRs that you want to target using a regex on the source branch name
+* `successful`: Regex expressions to match build names that must be green
+* `findLatestSuccessful`: If a new commit breaks one of your builds, find the latest commit that is considered "green"
+
 If you want to access a private repository, you must also provide the credentials for Basic auth (this is the only auth supported currently):
 * `username`: The username to authenticate with. It only needs read access to the relevant repo.
 * `passwordRef`: A `Secret` name and key containing the password or personal access token to use for requests.
